@@ -1,8 +1,9 @@
 {
   "name": "tree-sitter-typescript",
-  "version": "0.23.2",
+  "version": "0.23.2-erosion.1",
+  "private": true,
   "description": "TypeScript and TSX grammars for tree-sitter",
-  "repository": "https://github.com/tree-sitter/tree-sitter-typescript",
+  "repository": "https://github.com/justus-camp-microsoft/tree-sitter-typescript",
   "license": "MIT",
   "author": "Max Brunsfeld <maxbrunsfeld@gmail.com>",
   "maintainers": [
@@ -35,7 +36,7 @@
   "dependencies": {
     "node-addon-api": "^8.2.2",
     "node-gyp-build": "^4.8.2",
-    "tree-sitter-javascript": "^0.23.1"
+    "tree-sitter-javascript": "0.23.1"
   },
   "peerDependencies": {
     "tree-sitter": "^0.21.0"
@@ -48,10 +49,12 @@
   "devDependencies": {
     "eslint": ">=9.14.0",
     "eslint-config-treesitter": "^1.0.2",
-    "tree-sitter-cli": "^0.24.4",
+    "tree-sitter-cli": "0.24.4",
     "prebuildify": "^6.0.1"
   },
   "scripts": {
+    "generate": "cd typescript && tree-sitter generate && cd ../tsx && tree-sitter generate",
+    "test:corpus": "tree-sitter test",
     "install": "node-gyp-build",
     "lint": "eslint common/define-grammar.js",
     "test": "node --test bindings/node/*_test.js"

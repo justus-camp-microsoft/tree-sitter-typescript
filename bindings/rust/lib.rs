@@ -25,6 +25,9 @@
 
 use tree_sitter_language::LanguageFn;
 
+/// Build-time identity of the bundled grammar and generated parser sources.
+pub const SOURCE_FINGERPRINT: &str = env!("EROSION_TYPESCRIPT_FINGERPRINT");
+
 extern "C" {
     fn tree_sitter_typescript() -> *const ();
     fn tree_sitter_tsx() -> *const ();
@@ -75,5 +78,77 @@ mod tests {
         parser
             .set_language(&super::LANGUAGE_TSX.into())
             .expect("Error loading TSX parser");
+    }
+
+    fn parse(source: &str, language: tree_sitter_language::LanguageFn) -> tree_sitter::Tree {
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&language.into()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        assert!(
+            !tree.root_node().has_error(),
+            "{source}\n{}",
+            tree.root_node().to_sexp()
+        );
+        tree
+    }
+
+    #[test]
+    fn compatibility_syntax_in_both_dialects() {
+        let cases = [
+            "export type * from './types'; export type * as api from './types';",
+            "interface Producer<out T> { readonly value: T; }",
+            "interface Consumer<in T> { consume(value: T): void; }",
+            "interface Cell<in out T> { get(): T; set(value: T): void; }",
+            "class C<const in T> {}",
+            "interface A<out> { value: out; } interface B<T, out> {}",
+            "class Q<out> extends Array<out> {}",
+            "function f<out>(x: out): out { return x; }",
+            "type P<out = string> = out; interface Covariant<out out> {}",
+            "type Callback = (any) => any;",
+            "interface Events { handler: (readonly?: boolean) => void; }",
+            "type Callback = (unknown, never) => any;",
+            "type A = (any); type B = readonly number[];",
+            "class C { constructor(readonly value: string) {} }",
+            "type N = -1; type Boxed = Box<-1,>; f<-1>(); f<-1,>(); const f2 = f<-1>;",
+        ];
+        for language in [super::LANGUAGE_TYPESCRIPT, super::LANGUAGE_TSX] {
+            for source in cases {
+                parse(source, language);
+            }
+        }
+    }
+
+    #[test]
+    fn comparisons_are_expressions_not_type_arguments() {
+        for language in [super::LANGUAGE_TYPESCRIPT, super::LANGUAGE_TSX] {
+            for rhs in ["-1", "+1", "1"] {
+                for suffix in [");", ",);", ", other);"] {
+                    let source = format!("items.filter((item: Item) => item.value < {rhs}{suffix}");
+                    let tree = parse(&source, language);
+                    let sexp = tree.root_node().to_sexp();
+                    assert!(sexp.contains("body: (binary_expression"), "{sexp}");
+                    assert!(!sexp.contains("type_arguments"), "{sexp}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_neighbors_still_fail() {
+        for language in [super::LANGUAGE_TYPESCRIPT, super::LANGUAGE_TSX] {
+            let mut parser = tree_sitter::Parser::new();
+            parser.set_language(&language.into()).unwrap();
+            for source in [
+                "export type * from ;",
+                "interface Broken<out T> { value: }",
+                "items.filter((item: Item) => item.value < ,);",
+                "function {",
+            ] {
+                assert!(
+                    parser.parse(source, None).unwrap().root_node().has_error(),
+                    "{source}"
+                );
+            }
+        }
     }
 }

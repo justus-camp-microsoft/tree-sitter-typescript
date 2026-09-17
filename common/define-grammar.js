@@ -45,7 +45,6 @@ module.exports = function defineGrammar(dialect) {
       [$.predefined_type, $.unary_expression],
       [$.type, $.flow_maybe_type],
       [$.tuple_type, $.array_type, $.pattern, $.type],
-      [$.readonly_type, $.pattern],
       [$.readonly_type, $.primary_expression],
       [$.type_query, $.subscript_expression, $.expression],
       [$.type_query, $._type_query_subscript_expression],
@@ -62,7 +61,6 @@ module.exports = function defineGrammar(dialect) {
       [$.override_modifier, $.primary_expression],
       [$.decorator_call_expression, $.decorator],
       [$.literal_type, $.pattern],
-      [$.predefined_type, $.pattern],
       [$.call_expression, $._type_query_call_expression],
       [$.call_expression, $._type_query_call_expression_in_type_annotation],
       [$.new_expression, $.primary_expression],
@@ -71,6 +69,10 @@ module.exports = function defineGrammar(dialect) {
     ]),
 
     conflicts: ($, previous) => previous.concat([
+      [$.predefined_type, $.pattern],
+      [$.primary_expression, $.pattern, $.predefined_type],
+      [$.readonly_type, $.pattern],
+      [$.primary_expression, $._number],
       [$.call_expression, $.instantiation_expression, $.binary_expression],
       [$.call_expression, $.instantiation_expression, $.binary_expression, $.unary_expression],
       [$.call_expression, $.instantiation_expression, $.binary_expression, $.update_expression],
@@ -324,6 +326,13 @@ module.exports = function defineGrammar(dialect) {
           'type',
           $.export_clause,
           optional($._from_clause),
+          $._semicolon,
+        ),
+        seq(
+          'export',
+          'type',
+          choice('*', $.namespace_export),
+          $._from_clause,
           $._semicolon,
         ),
         seq('export', '=', $.expression, $._semicolon),
@@ -926,10 +935,10 @@ module.exports = function defineGrammar(dialect) {
         $.undefined,
       ),
 
-      _number: $ => prec.left(1, seq(
+      _number: $ => seq(
         field('operator', choice('-', '+')),
         field('argument', $.number),
-      )),
+      ),
 
       existential_type: _ => '*',
 
@@ -1004,7 +1013,9 @@ module.exports = function defineGrammar(dialect) {
 
       type_parameter: $ => seq(
         optional('const'),
-        field('name', $._type_identifier),
+        optional('in'),
+        optional('out'),
+        field('name', choice($._type_identifier, alias('out', $.type_identifier))),
         field('constraint', optional($.constraint)),
         field('value', optional($.default_type)),
       ),
@@ -1084,6 +1095,8 @@ module.exports = function defineGrammar(dialect) {
         'readonly',
         'module',
         'any',
+        'unknown',
+        'never',
         'number',
         'boolean',
         'string',
