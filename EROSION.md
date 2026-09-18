@@ -46,7 +46,7 @@ C source. Keep the build script's input list complete when adding source files.
 ## Maintaining the grammar
 
 ```console
-npm ci --ignore-scripts --registry=https://registry.npmjs.org
+npm ci --ignore-scripts
 npm rebuild tree-sitter-cli
 npm run generate
 npm run test:corpus
@@ -54,6 +54,9 @@ cargo fmt -- --check
 cargo test
 cargo clippy --all-targets -- -D warnings
 ```
+
+Use the environment's configured npm registry or approved mirror. These commands
+must not override a corporate registry with the public registry.
 
 The lockfile pins generator `tree-sitter-cli 0.24.4` and inherited grammar
 `tree-sitter-javascript 0.23.1`. Regenerate TypeScript and TSX together and commit
