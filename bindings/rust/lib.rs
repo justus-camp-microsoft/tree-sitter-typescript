@@ -134,6 +134,139 @@ mod tests {
     }
 
     #[test]
+    fn contextual_type_names_in_exports() {
+        for language in [super::LANGUAGE_TYPESCRIPT, super::LANGUAGE_TSX] {
+            for source in [
+                "export { type };",
+                "export { type, value } from './source';",
+                "export { type as renamed, value as type } from './source';",
+                "export { type as type } from './source';",
+                "export { type Item, type type, type type as Renamed } from './source';",
+                "export type { type, type as Renamed } from './source';",
+                "export { 'type' as type, type as 'type' } from './source';",
+                "export * as type from './source'; export type * as type from './source';",
+            ] {
+                parse(source, language);
+            }
+            let tree = parse("export { type, type Item };", language);
+            let export = tree.root_node().named_child(0).unwrap();
+            let clause = export.named_child(0).unwrap();
+            let value = clause.named_child(0).unwrap();
+            assert_eq!(
+                value.child_by_field_name("name").unwrap().kind(),
+                "identifier"
+            );
+            assert_eq!(value.child_count(), 1);
+            let type_only = clause.named_child(1).unwrap();
+            assert_eq!(type_only.child(0).unwrap().kind(), "type");
+            assert_eq!(type_only.child_count(), 2);
+        }
+    }
+
+    #[test]
+    fn contextual_labels_in_tuple_type_arguments() {
+        for language in [super::LANGUAGE_TYPESCRIPT, super::LANGUAGE_TSX] {
+            for label in [
+                "type",
+                "value",
+                "readonly",
+                "any",
+                "unknown",
+                "out",
+                "as",
+                "satisfies",
+                "never",
+                "number",
+                "boolean",
+                "string",
+                "symbol",
+                "object",
+                "unique",
+                "void",
+                "typeof",
+                "keyof",
+                "infer",
+                "this",
+                "true",
+                "false",
+                "null",
+                "undefined",
+                "const",
+                "abstract",
+                "import",
+                "function",
+                "class",
+                "new",
+                "await",
+                "yield",
+                "super",
+                "delete",
+                "return",
+                "switch",
+                "case",
+            ] {
+                for member in [
+                    format!("{label}: string"),
+                    format!("{label}?: string"),
+                    format!("...{label}: string[]"),
+                ] {
+                    for source in [
+                        format!("type Args = [{member}];"),
+                        format!("const f = sandbox.stub<[{member}], void>();"),
+                        format!("const f = sandbox\n .stub<[{member}], void>()\n .callsFake(() => {{}});"),
+                    ] {
+                        let tree = parse(&source, language);
+                        assert!(tree.root_node().to_sexp().contains("tuple_type"), "{source}");
+                    }
+                }
+            }
+            parse(
+                "const f = sandbox.stub<[type: string, content: unknown, localOpMetadata: unknown, squash: boolean], void>().callsFake((type: string, content: unknown, localOpMetadata: unknown, squash: boolean) => {});",
+                language,
+            );
+            let tree = parse(
+                "type Args = [type: string, readonly?: number, ...unknown: boolean[]];",
+                language,
+            );
+            let tuple = tree
+                .root_node()
+                .named_child(0)
+                .unwrap()
+                .child_by_field_name("value")
+                .unwrap();
+            let required = tuple.named_child(0).unwrap();
+            let optional = tuple.named_child(1).unwrap();
+            let rest = tuple.named_child(2).unwrap();
+            assert_eq!(required.kind(), "required_parameter");
+            assert_eq!(
+                required.child_by_field_name("name").unwrap().kind(),
+                "identifier"
+            );
+            assert_eq!(optional.kind(), "optional_parameter");
+            assert_eq!(
+                optional.child_by_field_name("name").unwrap().kind(),
+                "identifier"
+            );
+            assert_eq!(
+                rest.child_by_field_name("name").unwrap().kind(),
+                "rest_pattern"
+            );
+            assert_eq!(rest.named_child_count(), 2);
+            let rest_name = rest.child_by_field_name("name").unwrap();
+            assert_eq!(rest_name.named_child_count(), 1);
+            assert_eq!(rest_name.named_child(0).unwrap().kind(), "identifier");
+            let ordinary = parse("type Args = [number, boolean?, ...string[]];", language);
+            let sexp = ordinary.root_node().to_sexp();
+            assert!(sexp.contains("(optional_type (predefined_type))"), "{sexp}");
+            assert!(
+                sexp.contains("(rest_type (array_type (predefined_type)))"),
+                "{sexp}"
+            );
+            assert!(!sexp.contains("required_parameter"), "{sexp}");
+        }
+    }
+
+    #[test]
     fn malformed_neighbors_still_fail() {
         for language in [super::LANGUAGE_TYPESCRIPT, super::LANGUAGE_TSX] {
             let mut parser = tree_sitter::Parser::new();
@@ -143,6 +276,12 @@ mod tests {
                 "interface Broken<out T> { value: }",
                 "items.filter((item: Item) => item.value < ,);",
                 "function {",
+                "export { type Item as } from './source';",
+                "export { type as } from './source';",
+                "sandbox.stub<[type: ], void>();",
+                "sandbox.stub<[type?: ], void>();",
+                "sandbox.stub<[...type: ], void>();",
+                "type Args = [...{ name }: string[]];",
             ] {
                 assert!(
                     parser.parse(source, None).unwrap().root_node().has_error(),

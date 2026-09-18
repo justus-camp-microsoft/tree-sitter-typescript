@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-typescript",
-  "version": "0.23.2-erosion.1",
+  "version": "0.23.2-erosion.2",
   "private": true,
   "description": "TypeScript and TSX grammars for tree-sitter",
   "repository": "https://github.com/justus-camp-microsoft/tree-sitter-typescript",

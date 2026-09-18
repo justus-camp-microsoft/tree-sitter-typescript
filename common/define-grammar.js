@@ -100,6 +100,8 @@ module.exports = function defineGrammar(dialect) {
       [$.pattern, $.primary_type],
 
       [$.optional_tuple_parameter, $.primary_type],
+      [$.optional_tuple_parameter, $.predefined_type],
+      [$.optional_tuple_parameter, $.literal_type],
       [$.rest_pattern, $.primary_type, $.primary_expression],
 
       [$.object, $.object_type],
@@ -129,6 +131,7 @@ module.exports = function defineGrammar(dialect) {
       ].includes(rule.name))
       .concat([
         $._type_identifier,
+        $._tuple_label,
         $._jsx_start_opening_element,
       ]),
 
@@ -271,9 +274,13 @@ module.exports = function defineGrammar(dialect) {
         '/>',
       )),
 
-      export_specifier: (_, previous) => seq(
+      export_specifier: $ => seq(
         optional(choice('type', 'typeof')),
-        previous,
+        field('name', choice($._module_export_name, alias('type', $.identifier))),
+        optional(seq(
+          'as',
+          field('alias', choice($._module_export_name, alias('type', $.identifier))),
+        )),
       ),
 
       _import_identifier: $ => choice($.identifier, alias('type', $.identifier)),
@@ -740,15 +747,29 @@ module.exports = function defineGrammar(dialect) {
       ),
 
       tuple_parameter: $ => seq(
-        field('name', choice($.identifier, $.rest_pattern)),
+        field('name', choice(
+          $._tuple_label,
+          alias($._tuple_rest_pattern, $.rest_pattern),
+        )),
         field('type', $.type_annotation),
       ),
 
       optional_tuple_parameter: $ => seq(
-        field('name', $.identifier),
+        field('name', $._tuple_label),
         '?',
         field('type', $.type_annotation),
       ),
+
+      _tuple_rest_pattern: $ => seq('...', $._tuple_label),
+
+      // IdentifierName labels may also lex as the start of a type or expression.
+      _tuple_label: $ => alias(choice(
+        $.identifier,
+        $._reserved_identifier,
+        $.this, $.true, $.false, $.null, $.undefined, $.import, $.super,
+        'void', 'unique', 'infer', 'keyof', 'typeof', 'const', 'abstract',
+        'function', 'class', 'await', 'yield', 'delete',
+      ), $.identifier),
 
       optional_type: $ => seq($.type, '?'),
       rest_type: $ => seq('...', $.type),

@@ -1,6 +1,6 @@
 # Erosion compatibility branch
 
-`erosion-compat` carries `tree-sitter-typescript 0.23.2-erosion.1`, based on
+`erosion-compat` carries `tree-sitter-typescript 0.23.2-erosion.2`, based on
 upstream 0.23.2 commit `f975a621f4e7f532fe322e13c4f79495e0a7b2e7`.
 The upstream [MIT license](LICENSE) and attribution are retained.
 
@@ -9,6 +9,11 @@ The upstream [MIT license](LICENSE) and attribution are retained.
 - `in`, `out`, and `in out` generic variance annotations, preserving contextual
   type parameters named `out`.
 - `export type *` and `export type * as Name` re-exports.
+- Named exports of an identifier called `type`, including aliases and
+  type-only specifiers, without conflating the name with the modifier.
+- Required, optional, and rest tuple labels using contextual/reserved keywords,
+  including in generic calls. Labels retain identifier/rest-pattern AST shapes;
+  unlabeled optional and rest types keep their existing shapes.
 - Contextual parameter identifiers (`any`, `readonly`, `unknown`, `never`).
 - Signed-number comparisons in call arguments such as
   `items.filter((item: Item) => item.value < -1,)`.
@@ -25,7 +30,7 @@ GLR conflicts. They do not rewrite source or suppress parsing errors.
 ## Rust consumption
 
 Consumers can override the crates.io dependency with `[patch.crates-io]` pointing
-at this fork and a full commit SHA. Pin `=0.23.2-erosion.1` as the dependency
+at this fork and a full commit SHA. Pin `=0.23.2-erosion.2` as the dependency
 version and commit the consumer's Cargo.lock. Do not follow a moving branch for
 reproducible measurements.
 
